@@ -6,7 +6,7 @@
     "dev": "next dev",
     "apply:migrations": "node ./scripts/apply_migrations.js",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -p $PORT -H 0.0.0.0",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
   },
