@@ -13,6 +13,7 @@ import {
   minutesToHuman,
   totalDelay,
   todayISO,
+  workDurationMinutes,
 } from '@/lib/attendance';
 import { ARABIC_MONTHS } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -264,11 +265,13 @@ export default function AdminPanel() {
       'وقت الخروج 1',
       'وقت الدخول 2',
       'وقت الخروج 2',
+      'ساعات العمل',
       'التأخير',
     ];
     const lines = monthGrid.map((g) => {
       const r = g.row;
       const delay = r ? totalDelay(r) : 0;
+      const workMinutes = r ? workDurationMinutes(r) : 0;
       return [
         g.dayName,
         formatDDMMYYYY(g.iso),
@@ -276,6 +279,7 @@ export default function AdminPanel() {
         r?.exit1 ?? '',
         r?.entry2 ?? '',
         r?.exit2 ?? '',
+        workMinutes > 0 ? minutesToHuman(workMinutes) : '',
         minutesToHuman(delay),
       ].join(',');
     });
@@ -799,6 +803,7 @@ function AttendanceSheet({
               <Th>وقت الخروج ١</Th>
               <Th>وقت الدخول ٢</Th>
               <Th>وقت الخروج ٢</Th>
+              <Th>ساعات العمل</Th>
               <Th>التأخير</Th>
               <Th>الإجراء</Th>
             </tr>
@@ -821,6 +826,11 @@ function AttendanceSheet({
                   <Td className="tabular-nums">{r?.exit1 ?? '—'}</Td>
                   <Td className="tabular-nums">{r?.entry2 ?? '—'}</Td>
                   <Td className="tabular-nums">{r?.exit2 ?? '—'}</Td>
+                  <Td className={`tabular-nums ${r ? (workDurationMinutes(r) >= 540 ? 'text-success' : 'text-destructive') : 'text-muted-foreground'}`}>
+                    {r && workDurationMinutes(r) > 0
+                      ? minutesToHuman(workDurationMinutes(r))
+                      : '—'}
+                  </Td>
                   <Td>
                     {delay > 0 ? (
                       <span className="font-medium text-destructive">

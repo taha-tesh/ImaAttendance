@@ -82,6 +82,14 @@ export function totalDelay(row: {
   return morningDelay(row.entry1) + breakDelay(row.exit1, row.entry2);
 }
 
+export function workDurationMinutes(row: {
+  entry1: string | null;
+  exit2: string | null;
+}): number {
+  if (!row.entry1 || !row.exit2) return 0;
+  return clockToMinutes(row.exit2) - clockToMinutes(row.entry1);
+}
+
 export function daysInMonth(year: number, month: number): number {
   return new Date(year, month + 1, 0).getDate();
 }
