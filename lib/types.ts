@@ -17,6 +17,40 @@ export type AttendanceRow = {
   updated_at: string;
 };
 
+export type AssetType = {
+  id: string;
+  name: string;
+  created_at: string;
+  available_amount?: string;
+};
+
+export type AssetItem = {
+  id: string;
+  type_id: string;
+  name: string;
+  quantity: number;
+  quantity_in_stock: number;
+  available_quantity: number;
+  unit_price: string;
+  total_price: string;
+  created_at: string;
+};
+
+export type AssetFund = {
+  id: string;
+  type_id: string;
+  amount: string;
+  created_at: string;
+};
+
+export type AssetSummary = {
+  items: AssetItem[];
+  funds: AssetFund[];
+  total_item_price: string;
+  total_funds: string;
+  balance: string;
+};
+
 export const ARABIC_DAYS = [
   'الأحد',
   'الإثنين',

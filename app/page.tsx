@@ -4,10 +4,11 @@ import { useState } from 'react';
 import Kiosk from '@/components/kiosk';
 import AdminLogin from '@/components/admin-login';
 import AdminPanel from '@/components/admin-panel';
+import AssetManagement from '@/components/asset-management';
 import { useAuth } from '@/lib/auth-context';
 
 export default function Home() {
-  const [view, setView] = useState<'kiosk' | 'admin'>('kiosk');
+  const [view, setView] = useState<'kiosk' | 'admin' | 'assets'>('kiosk');
   const { isAdmin, loading } = useAuth();
 
   return (
@@ -50,6 +51,16 @@ export default function Home() {
             >
               لوحة الإدارة
             </button>
+            <button
+              onClick={() => setView('assets')}
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-all sm:px-4 ${
+                view === 'assets'
+                  ? 'bg-card text-primary shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              إدارة الأصول
+            </button>
           </nav>
         </div>
       </header>
@@ -57,6 +68,16 @@ export default function Home() {
       <main className="flex-1">
         {view === 'kiosk' ? (
           <Kiosk />
+        ) : view === 'assets' ? (
+          isAdmin ? (
+            <AssetManagement />
+          ) : loading ? (
+            <div className="flex h-[60vh] items-center justify-center">
+              <div className="text-muted-foreground">جارٍ التحميل…</div>
+            </div>
+          ) : (
+            <AdminLogin />
+          )
         ) : loading ? (
           <div className="flex h-[60vh] items-center justify-center">
             <div className="text-muted-foreground">جارٍ التحميل…</div>
