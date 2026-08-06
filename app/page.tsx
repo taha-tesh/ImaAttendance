@@ -59,7 +59,7 @@ export default function Home() {
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              إدارة الأصول
+              إدارة المشتريات
             </button>
           </nav>
         </div>

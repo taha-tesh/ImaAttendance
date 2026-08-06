@@ -211,7 +211,8 @@ export default function AdminPanel() {
   const stats = useMemo(() => {
     const worked = rows.filter((r) => r.entry1).length;
     const totalDelayMin = rows.reduce((sum, r) => sum + totalDelay(r), 0);
-    return { worked, totalDelayMin };
+    const totalWorkMinutes = rows.reduce((sum, r) => sum + workDurationMinutes(r), 0);
+    return { worked, totalDelayMin, totalWorkMinutes };
   }, [rows]);
 
   const handleAdd = async () => {
@@ -402,7 +403,7 @@ export default function AdminPanel() {
       ) : (
         <>
           {/* Stats */}
-          <div className="no-print mb-6 grid gap-4 sm:grid-cols-2">
+          <div className="no-print mb-6 grid gap-4 sm:grid-cols-3">
             <StatBox
               icon={<CalendarDays className="h-6 w-6" />}
               label="إجمالي أيام العمل في الشهر"
@@ -416,6 +417,13 @@ export default function AdminPanel() {
               value={minutesToHuman(stats.totalDelayMin)}
               color={stats.totalDelayMin > 0 ? 'text-destructive' : 'text-success'}
               bg={stats.totalDelayMin > 0 ? 'bg-destructive/10' : 'bg-success/10'}
+            />
+            <StatBox
+              icon={<Clock className="h-6 w-6" />}
+              label="إجمالي ساعات العمل في الشهر"
+              value={minutesToHuman(stats.totalWorkMinutes)}
+              color="text-primary"
+              bg="bg-primary/10"
             />
           </div>
 
@@ -826,7 +834,7 @@ function AttendanceSheet({
                   <Td className="tabular-nums">{r?.exit1 ?? '—'}</Td>
                   <Td className="tabular-nums">{r?.entry2 ?? '—'}</Td>
                   <Td className="tabular-nums">{r?.exit2 ?? '—'}</Td>
-                  <Td className={`tabular-nums ${r ? (workDurationMinutes(r) >= 540 ? 'text-success' : 'text-destructive') : 'text-muted-foreground'}`}>
+                  <Td className={`tabular-nums ${r ? (workDurationMinutes(r) >= 480 ? 'text-success' : 'text-destructive') : 'text-muted-foreground'}`}>
                     {r && workDurationMinutes(r) > 0
                       ? minutesToHuman(workDurationMinutes(r))
                       : '—'}

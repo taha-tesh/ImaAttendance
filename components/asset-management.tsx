@@ -194,8 +194,8 @@ export default function AssetManagement() {
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
       <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
         <aside className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-<div className="mb-4">
-              <h2 className="text-lg font-bold text-foreground">إدارة الأصول</h2>
+          <div className="mb-4">
+              <h2 className="text-lg font-bold text-foreground">إدارة المشتريات</h2>
               <p className="text-sm text-muted-foreground">اختر نوع المورد أو أضف جديداً</p>
           </div>
 

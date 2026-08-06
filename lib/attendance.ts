@@ -84,10 +84,13 @@ export function totalDelay(row: {
 
 export function workDurationMinutes(row: {
   entry1: string | null;
+  exit1: string | null;
+  entry2: string | null;
   exit2: string | null;
 }): number {
-  if (!row.entry1 || !row.exit2) return 0;
-  return clockToMinutes(row.exit2) - clockToMinutes(row.entry1);
+  const morningMinutes = row.entry1 && row.exit1 ? clockToMinutes(row.exit1) - clockToMinutes(row.entry1) : 0;
+  const afternoonMinutes = row.entry2 && row.exit2 ? clockToMinutes(row.exit2) - clockToMinutes(row.entry2) : 0;
+  return Math.max(0, morningMinutes + afternoonMinutes);
 }
 
 export function daysInMonth(year: number, month: number): number {
