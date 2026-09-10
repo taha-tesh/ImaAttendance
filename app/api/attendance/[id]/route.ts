@@ -1,7 +1,11 @@
 import { query } from '@/lib/db';
+import { requireAttendanceNetwork } from '@/lib/attendance-access';
 import { NextResponse } from 'next/server';
 
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+  const accessError = requireAttendanceNetwork(request);
+  if (accessError) return accessError;
+
   const id = params?.id;
   if (!id) {
     return NextResponse.json({ error: 'Attendance ID is required.' }, { status: 400 });
@@ -40,6 +44,9 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 }
 
 export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+  const accessError = requireAttendanceNetwork(request);
+  if (accessError) return accessError;
+
   const id = params?.id;
   if (!id) {
     return NextResponse.json({ error: 'Attendance ID is required.' }, { status: 400 });
