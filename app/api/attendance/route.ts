@@ -1,5 +1,4 @@
 import { query } from '@/lib/db';
-import { requireAttendanceNetwork } from '@/lib/attendance-access';
 import { NextResponse } from 'next/server';
 
 export async function GET(request: Request) {
@@ -50,9 +49,6 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const accessError = requireAttendanceNetwork(request);
-  if (accessError) return accessError;
-
   const body = await request.json();
   const employee_id = typeof body.employee_id === 'string' ? body.employee_id : '';
   const work_date = typeof body.work_date === 'string' ? body.work_date : '';
