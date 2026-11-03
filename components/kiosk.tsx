@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { fetchJson } from '@/lib/api';
-import type { Employee, AttendanceRow } from '@/lib/types';
+import type { Employee, AttendanceRow, Workplace } from '@/lib/types';
 import {
   currentTimeStr,
   todayISO,
@@ -10,6 +10,7 @@ import {
   arabicDayName,
   minutesToHuman,
   totalDelay,
+  workDurationMinutes,
 } from '@/lib/attendance';
 import {
   Select,
@@ -18,7 +19,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
 import {
   LogIn,
   LogOut,
@@ -33,6 +33,7 @@ type Field = 'entry1' | 'exit1' | 'entry2' | 'exit2';
 
 export default function Kiosk() {
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [workplaces, setWorkplaces] = useState<Workplace[]>([]);
   const [selectedId, setSelectedId] = useState<string>('');
   const [todayRow, setTodayRow] = useState<AttendanceRow | null>(null);
   const [loading, setLoading] = useState(true);
@@ -54,6 +55,15 @@ export default function Kiosk() {
     }
   }, []);
 
+  const loadWorkplaces = useCallback(async () => {
+    try {
+      const data = await fetchJson<Workplace[]>('/api/workplaces');
+      setWorkplaces(data);
+    } catch {
+      setWorkplaces([]);
+    }
+  }, []);
+
   const loadToday = useCallback(async (empId: string) => {
     try {
       const data = await fetchJson<AttendanceRow | null>(
@@ -68,10 +78,10 @@ export default function Kiosk() {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      await loadEmployees();
+      await Promise.all([loadEmployees(), loadWorkplaces()]);
       setLoading(false);
     })();
-  }, [loadEmployees]);
+  }, [loadEmployees, loadWorkplaces]);
 
   useEffect(() => {
     if (selectedId) {
@@ -110,44 +120,54 @@ export default function Kiosk() {
   };
 
   const selectedEmp = employees.find((e) => e.id === selectedId);
+  const selectedWorkplace = workplaces.find((w) => w.id === selectedEmp?.workplace_id);
+  const hasBreak = (selectedWorkplace?.break_minutes ?? 60) > 0;
   const delay = todayRow ? totalDelay(todayRow) : 0;
+  const workedMinutes = todayRow ? workDurationMinutes(todayRow) : 0;
 
-  const actions: {
-    field: Field;
-    label: string;
-    icon: React.ReactNode;
-    done: boolean;
-    color: string;
-  }[] = [
-    {
-      field: 'entry1',
-      label: 'تسجيل الدخول - الصباح',
-      icon: <LogIn className="h-6 w-6" />,
-      done: !!todayRow?.entry1,
-      color: 'bg-primary text-primary-foreground hover:bg-primary/90',
-    },
-    {
-      field: 'exit1',
-      label: 'خروج للاستراحة',
-      icon: <Coffee className="h-6 w-6" />,
-      done: !!todayRow?.exit1,
-      color: 'bg-warning text-warning-foreground hover:bg-warning/90',
-    },
-    {
-      field: 'entry2',
-      label: 'عودة من الاستراحة',
-      icon: <Utensils className="h-6 w-6" />,
-      done: !!todayRow?.entry2,
-      color: 'bg-success text-success-foreground hover:bg-success/90',
-    },
-    {
-      field: 'exit2',
-      label: 'تسجيل الخروج - المساء',
-      icon: <LogOut className="h-6 w-6" />,
-      done: !!todayRow?.exit2,
-      color: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
-    },
-  ];
+  const actions = useMemo(() => {
+    const all: {
+      field: Field;
+      label: string;
+      icon: React.ReactNode;
+      done: boolean;
+      color: string;
+    }[] = [
+      {
+        field: 'entry1',
+        label: 'تسجيل الدخول - الصباح',
+        icon: <LogIn className="h-6 w-6" />,
+        done: !!todayRow?.entry1,
+        color: 'bg-primary text-primary-foreground hover:bg-primary/90',
+      },
+      {
+        field: 'exit1',
+        label: 'خروج للاستراحة',
+        icon: <Coffee className="h-6 w-6" />,
+        done: !!todayRow?.exit1,
+        color: 'bg-warning text-warning-foreground hover:bg-warning/90',
+      },
+      {
+        field: 'entry2',
+        label: 'عودة من الاستراحة',
+        icon: <Utensils className="h-6 w-6" />,
+        done: !!todayRow?.entry2,
+        color: 'bg-success text-success-foreground hover:bg-success/90',
+      },
+      {
+        field: 'exit2',
+        label: 'تسجيل الخروج - المساء',
+        icon: <LogOut className="h-6 w-6" />,
+        done: !!todayRow?.exit2,
+        color: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
+      },
+    ];
+
+    if (!hasBreak) {
+      return all.filter((a) => a.field === 'entry1' || a.field === 'exit2');
+    }
+    return all;
+  }, [todayRow, hasBreak]);
 
   if (loading) {
     return (
@@ -230,23 +250,33 @@ export default function Kiosk() {
           <h3 className="mb-3 text-sm font-bold text-foreground">
             سجل اليوم - {selectedEmp?.full_name}
           </h3>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <TimeChip label="دخول ١" value={todayRow.entry1} />
-            <TimeChip label="خروج ١" value={todayRow.exit1} />
-            <TimeChip label="دخول ٢" value={todayRow.entry2} />
-            <TimeChip label="خروج ٢" value={todayRow.exit2} />
+          <div className={`grid grid-cols-2 gap-3 ${hasBreak ? 'sm:grid-cols-4' : ''}`}>
+            <TimeChip label="دخول" value={todayRow.entry1} />
+            {hasBreak && <TimeChip label="خروج استراحة" value={todayRow.exit1} />}
+            {hasBreak && <TimeChip label="عودة" value={todayRow.entry2} />}
+            <TimeChip label="خروج" value={todayRow.exit2} />
           </div>
-          <div className="mt-4 flex items-center justify-between rounded-xl bg-muted px-4 py-3">
-            <span className="text-sm font-medium text-muted-foreground">
-              التأخير اليوم
-            </span>
-            <span
-              className={`text-base font-bold ${
-                delay > 0 ? 'text-destructive' : 'text-success'
-              }`}
-            >
-              {minutesToHuman(delay)}
-            </span>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="flex items-center justify-between rounded-xl bg-muted px-4 py-3">
+              <span className="text-sm font-medium text-muted-foreground">
+                ساعات العمل
+              </span>
+              <span className="text-base font-bold text-primary">
+                {workedMinutes > 0 ? minutesToHuman(workedMinutes) : '—'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between rounded-xl bg-muted px-4 py-3">
+              <span className="text-sm font-medium text-muted-foreground">
+                التأخير اليوم
+              </span>
+              <span
+                className={`text-base font-bold ${
+                  delay > 0 ? 'text-destructive' : 'text-success'
+                }`}
+              >
+                {minutesToHuman(delay)}
+              </span>
+            </div>
           </div>
         </div>
       )}

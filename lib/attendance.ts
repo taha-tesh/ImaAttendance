@@ -88,8 +88,26 @@ export function workDurationMinutes(row: {
   entry2: string | null;
   exit2: string | null;
 }): number {
-  const morningMinutes = row.entry1 && row.exit1 ? clockToMinutes(row.exit1) - clockToMinutes(row.entry1) : 0;
-  const afternoonMinutes = row.entry2 && row.exit2 ? clockToMinutes(row.exit2) - clockToMinutes(row.entry2) : 0;
+  // Continuous shift (no break punches): entry1 → exit2
+  if (row.entry1 && row.exit2 && !row.exit1 && !row.entry2) {
+    return Math.max(0, clockToMinutes(row.exit2) - clockToMinutes(row.entry1));
+  }
+
+  // Continuous shift stamped as entry1 → exit1 only
+  if (row.entry1 && row.exit1 && !row.entry2 && !row.exit2) {
+    return Math.max(0, clockToMinutes(row.exit1) - clockToMinutes(row.entry1));
+  }
+
+  const morningMinutes =
+    row.entry1 && row.exit1 ? clockToMinutes(row.exit1) - clockToMinutes(row.entry1) : 0;
+  const afternoonMinutes =
+    row.entry2 && row.exit2 ? clockToMinutes(row.exit2) - clockToMinutes(row.entry2) : 0;
+
+  // Partial continuous: morning entry then evening exit, with only one mid stamp missing
+  if (morningMinutes === 0 && afternoonMinutes === 0 && row.entry1 && row.exit2) {
+    return Math.max(0, clockToMinutes(row.exit2) - clockToMinutes(row.entry1));
+  }
+
   return Math.max(0, morningMinutes + afternoonMinutes);
 }
 

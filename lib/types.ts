@@ -1,7 +1,19 @@
+export type Workplace = {
+  id: string;
+  name: string;
+  start_time: string; // HH:MM or HH:MM:SS
+  end_time: string;
+  break_minutes: number;
+  total_minutes: number;
+  created_at: string;
+};
+
 export type Employee = {
   id: string;
   full_name: string;
   starting_date: string; // ISO date yyyy-mm-dd
+  workplace_id: string | null;
+  workplace_name?: string | null;
   created_at: string;
 };
 

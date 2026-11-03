@@ -5,10 +5,11 @@ import Kiosk from '@/components/kiosk';
 import AdminLogin from '@/components/admin-login';
 import AdminPanel from '@/components/admin-panel';
 import AssetManagement from '@/components/asset-management';
+import WorkplaceManagement from '@/components/workplace-management';
 import { useAuth } from '@/lib/auth-context';
 
 export default function Home() {
-  const [view, setView] = useState<'kiosk' | 'admin' | 'assets'>('kiosk');
+  const [view, setView] = useState<'kiosk' | 'admin' | 'assets' | 'workplaces'>('kiosk');
   const { isAdmin, loading } = useAuth();
 
   return (
@@ -52,6 +53,16 @@ export default function Home() {
               لوحة الإدارة
             </button>
             <button
+              onClick={() => setView('workplaces')}
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-all sm:px-4 ${
+                view === 'workplaces'
+                  ? 'bg-card text-primary shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              أماكن العمل
+            </button>
+            <button
               onClick={() => setView('assets')}
               className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-all sm:px-4 ${
                 view === 'assets'
@@ -68,9 +79,9 @@ export default function Home() {
       <main className="flex-1">
         {view === 'kiosk' ? (
           <Kiosk />
-        ) : view === 'assets' ? (
+        ) : view === 'assets' || view === 'workplaces' ? (
           isAdmin ? (
-            <AssetManagement />
+            view === 'assets' ? <AssetManagement /> : <WorkplaceManagement />
           ) : loading ? (
             <div className="flex h-[60vh] items-center justify-center">
               <div className="text-muted-foreground">جارٍ التحميل…</div>

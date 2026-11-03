@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { fetchJson } from '@/lib/api';
-import type { Employee, AttendanceRow } from '@/lib/types';
+import type { Employee, AttendanceRow, Workplace } from '@/lib/types';
 import {
   arabicDayName,
   arabicMonthYear,
@@ -14,6 +14,9 @@ import {
   totalDelay,
   todayISO,
   workDurationMinutes,
+  SHIFT_START,
+  SHIFT_END,
+  BREAK_MINUTES,
 } from '@/lib/attendance';
 import { ARABIC_MONTHS } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -54,11 +57,13 @@ import {
   Clock,
   FileSpreadsheet,
   Pencil,
+  Building2,
 } from 'lucide-react';
 
 export default function AdminPanel() {
   const { signOut } = useAuth();
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [workplaces, setWorkplaces] = useState<Workplace[]>([]);
   const [selectedEmpId, setSelectedEmpId] = useState<string>('');
   const [rows, setRows] = useState<AttendanceRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,8 +71,15 @@ export default function AdminPanel() {
   const [delEmp, setDelEmp] = useState<Employee | null>(null);
   const [newName, setNewName] = useState('');
   const [newDate, setNewDate] = useState(todayISO());
+  const [newWorkplaceId, setNewWorkplaceId] = useState<string>('');
   const [adding, setAdding] = useState(false);
   const [addErr, setAddErr] = useState<string | null>(null);
+  const [editEmp, setEditEmp] = useState<Employee | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editDate, setEditDate] = useState(todayISO());
+  const [editWorkplaceId, setEditWorkplaceId] = useState('');
+  const [savingEmp, setSavingEmp] = useState(false);
+  const [editEmpErr, setEditEmpErr] = useState<string | null>(null);
   const [addRowOpen, setAddRowOpen] = useState(false);
   const [rowDate, setRowDate] = useState(todayISO());
   const [rowEntry1, setRowEntry1] = useState('');
@@ -99,6 +111,15 @@ export default function AdminPanel() {
     }
   }, []);
 
+  const loadWorkplaces = useCallback(async () => {
+    try {
+      const data = await fetchJson<Workplace[]>('/api/workplaces');
+      setWorkplaces(data);
+    } catch {
+      setWorkplaces([]);
+    }
+  }, []);
+
   const loadRows = useCallback(async (empId: string, y: number, m: number) => {
     const start = isoForDay(y, m, 1);
     const end = isoForDay(y, m, daysInMonth(y, m));
@@ -115,10 +136,10 @@ export default function AdminPanel() {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      await loadEmployees();
+      await Promise.all([loadEmployees(), loadWorkplaces()]);
       setLoading(false);
     })();
-  }, [loadEmployees]);
+  }, [loadEmployees, loadWorkplaces]);
 
   useEffect(() => {
     if (!selectedEmpId && employees.length > 0) {
@@ -135,6 +156,8 @@ export default function AdminPanel() {
   }, [selectedEmpId, year, month, loadRows]);
 
   const selectedEmp = employees.find((e) => e.id === selectedEmpId);
+  const selectedWorkplace = workplaces.find((w) => w.id === selectedEmp?.workplace_id);
+  const expectedWorkMinutes = selectedWorkplace?.total_minutes ?? 480;
 
   const openEditRow = (row: AttendanceRow) => {
     setEditingRow(row);
@@ -221,6 +244,10 @@ export default function AdminPanel() {
       setAddErr('الرجاء إدخال اسم الموظف');
       return;
     }
+    if (!newWorkplaceId) {
+      setAddErr('الرجاء اختيار مكان العمل');
+      return;
+    }
     setAdding(true);
     try {
       await fetchJson('/api/employees', {
@@ -228,16 +255,56 @@ export default function AdminPanel() {
         body: JSON.stringify({
           full_name: newName.trim(),
           starting_date: newDate,
+          workplace_id: newWorkplaceId,
         }),
       });
       setNewName('');
       setNewDate(todayISO());
+      setNewWorkplaceId('');
       setAddOpen(false);
       await loadEmployees();
     } catch {
       setAddErr('حدث خطأ أثناء الإضافة. حاول مرة أخرى.');
     } finally {
       setAdding(false);
+    }
+  };
+
+  const openEditEmp = (emp: Employee) => {
+    setEditEmp(emp);
+    setEditName(emp.full_name);
+    setEditDate(emp.starting_date);
+    setEditWorkplaceId(emp.workplace_id ?? '');
+    setEditEmpErr(null);
+  };
+
+  const handleEditEmp = async () => {
+    if (!editEmp) return;
+    setEditEmpErr(null);
+    if (!editName.trim()) {
+      setEditEmpErr('الرجاء إدخال اسم الموظف');
+      return;
+    }
+    if (!editWorkplaceId) {
+      setEditEmpErr('الرجاء اختيار مكان العمل');
+      return;
+    }
+    setSavingEmp(true);
+    try {
+      await fetchJson(`/api/employees/${editEmp.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          full_name: editName.trim(),
+          starting_date: editDate,
+          workplace_id: editWorkplaceId,
+        }),
+      });
+      setEditEmp(null);
+      await loadEmployees();
+    } catch {
+      setEditEmpErr('حدث خطأ أثناء التحديث. حاول مرة أخرى.');
+    } finally {
+      setSavingEmp(false);
     }
   };
 
@@ -467,9 +534,21 @@ export default function AdminPanel() {
                 >
                   <button
                     onClick={() => setSelectedEmpId(e.id)}
-                    className="font-medium"
+                    className="font-medium text-right"
                   >
-                    {e.full_name}
+                    <span className="block">{e.full_name}</span>
+                    {e.workplace_name && (
+                      <span className="block text-[11px] font-normal text-muted-foreground">
+                        {e.workplace_name}
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => openEditEmp(e)}
+                    className="text-muted-foreground transition-colors hover:text-primary"
+                    title="تعديل الموظف"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
                   </button>
                   <button
                     onClick={() => setDelEmp(e)}
@@ -486,8 +565,13 @@ export default function AdminPanel() {
           {/* Attendance sheet (printable) */}
           <AttendanceSheet
             empName={selectedEmp?.full_name ?? ''}
+            workplaceName={selectedWorkplace?.name ?? selectedEmp?.workplace_name ?? null}
             monthLabel={arabicMonthYear(year, month)}
             grid={monthGrid}
+            expectedWorkMinutes={expectedWorkMinutes}
+            shiftStart={selectedWorkplace?.start_time ?? SHIFT_START}
+            shiftEnd={selectedWorkplace?.end_time ?? SHIFT_END}
+            breakMinutes={selectedWorkplace?.break_minutes ?? BREAK_MINUTES}
             onEditRow={openEditRow}
             onDeleteRow={confirmDeleteRow}
           />
@@ -519,6 +603,29 @@ export default function AdminPanel() {
                 onChange={(e) => setNewDate(e.target.value)}
               />
             </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5">
+                <Building2 className="h-3.5 w-3.5" />
+                مكان العمل
+              </Label>
+              <Select value={newWorkplaceId} onValueChange={setNewWorkplaceId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="— اختر مكان العمل —" />
+                </SelectTrigger>
+                <SelectContent>
+                  {workplaces.map((w) => (
+                    <SelectItem key={w.id} value={w.id}>
+                      {w.name} ({minutesToHuman(w.total_minutes)} / يوم)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {workplaces.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  لا توجد أماكن عمل. أضف مكان عمل من تبويب «أماكن العمل» أولاً.
+                </p>
+              )}
+            </div>
             {addErr && (
               <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
                 {addErr}
@@ -531,6 +638,66 @@ export default function AdminPanel() {
             </DialogClose>
             <Button onClick={handleAdd} disabled={adding}>
               {adding ? 'جارٍ الإضافة…' : 'إضافة'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit employee dialog */}
+      <Dialog open={!!editEmp} onOpenChange={(open) => !open && setEditEmp(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>تعديل الموظف</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="edit-emp-name">الاسم الكامل</Label>
+              <Input
+                id="edit-emp-name"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="اسم المتعاون"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-emp-date">تاريخ بدء العمل</Label>
+              <Input
+                id="edit-emp-date"
+                type="date"
+                value={editDate}
+                onChange={(e) => setEditDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5">
+                <Building2 className="h-3.5 w-3.5" />
+                مكان العمل
+              </Label>
+              <Select value={editWorkplaceId} onValueChange={setEditWorkplaceId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="— اختر مكان العمل —" />
+                </SelectTrigger>
+                <SelectContent>
+                  {workplaces.map((w) => (
+                    <SelectItem key={w.id} value={w.id}>
+                      {w.name} ({minutesToHuman(w.total_minutes)} / يوم)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {editEmpErr && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                {editEmpErr}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">إلغاء</Button>
+            </DialogClose>
+            <Button onClick={handleEditEmp} disabled={savingEmp}>
+              {savingEmp ? 'جارٍ التحديث…' : 'حفظ التعديلات'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -775,14 +942,24 @@ function StatBox({
 
 function AttendanceSheet({
   empName,
+  workplaceName,
   monthLabel,
   grid,
+  expectedWorkMinutes,
+  shiftStart,
+  shiftEnd,
+  breakMinutes,
   onEditRow,
   onDeleteRow,
 }: {
   empName: string;
+  workplaceName: string | null;
   monthLabel: string;
   grid: { iso: string; day: number; dayName: string; row: AttendanceRow | null }[];
+  expectedWorkMinutes: number;
+  shiftStart: string;
+  shiftEnd: string;
+  breakMinutes: number;
   onEditRow: (row: AttendanceRow) => void;
   onDeleteRow: (row: AttendanceRow) => void;
 }) {
@@ -794,6 +971,13 @@ function AttendanceSheet({
         <div className="mt-2 text-sm text-muted-foreground">
           اسم المتعاون:{' '}
           <span className="font-bold text-foreground">{empName}</span>
+          {workplaceName && (
+            <>
+              <span className="mx-3">|</span>
+              مكان العمل:{' '}
+              <span className="font-bold text-foreground">{workplaceName}</span>
+            </>
+          )}
           <span className="mx-3">|</span>
           الشهر:{' '}
           <span className="font-bold text-foreground">{monthLabel}</span>
@@ -834,7 +1018,7 @@ function AttendanceSheet({
                   <Td className="tabular-nums">{r?.exit1 ?? '—'}</Td>
                   <Td className="tabular-nums">{r?.entry2 ?? '—'}</Td>
                   <Td className="tabular-nums">{r?.exit2 ?? '—'}</Td>
-                  <Td className={`tabular-nums ${r ? (workDurationMinutes(r) >= 480 ? 'text-success' : 'text-destructive') : 'text-muted-foreground'}`}>
+                  <Td className={`tabular-nums ${r ? (workDurationMinutes(r) >= expectedWorkMinutes ? 'text-success' : 'text-destructive') : 'text-muted-foreground'}`}>
                     {r && workDurationMinutes(r) > 0
                       ? minutesToHuman(workDurationMinutes(r))
                       : '—'}
@@ -881,7 +1065,8 @@ function AttendanceSheet({
 
       {/* Footer note */}
       <div className="border-t border-border bg-muted/30 px-6 py-3 text-xs text-muted-foreground">
-        دوام العمل: ٠٧:٣٠ صباحاً حتى ١٦:٣٠ مساءً • استراحة ٦٠ دقيقة
+        دوام العمل: {shiftStart.slice(0, 5)} حتى {shiftEnd.slice(0, 5)} • استراحة{' '}
+        {breakMinutes} دقيقة • المطلوب يومياً: {minutesToHuman(expectedWorkMinutes)}
       </div>
     </div>
   );
